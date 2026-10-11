@@ -1,0 +1,43 @@
+# Ortam ve gizli bilgiler
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.pfx
+ca-bundle.crt
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+dist/
+build/
+
+# Node
+node_modules/
+frontend/dist/
+frontend/.vite/
+*.tsbuildinfo
+npm-debug.log*
+playwright-report/
+test-results/
+
+# Çalışma zamanı verileri — git working copy asla commit edilmez
+data/
+/repo-cache/
+
+# Editör ve işletim sistemi
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+.DS_Store
+Thumbs.db

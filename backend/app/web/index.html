@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AnsibleUI — Önizleme</title>
+<link rel="icon" href="/ui/assets/logo.svg" type="image/svg+xml" />
+<link rel="stylesheet" href="/ui/styles.css" />
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <img class="brand__mark" src="/ui/assets/logo.svg" alt="" />
+    <div class="brand__text">
+      <span class="brand__name">ANSIBLE<span class="brand__name--alt">UI</span></span>
+      <span class="brand__tag">Görsel Ansible Otomasyon Platformu</span>
+    </div>
+  </div>
+  <div class="topbar__right">
+    <span class="pill pill--warn" title="Bu ekran gerçek ayrıştırıcıyı kullanır, kalıcı arayüz değildir">
+      Teknik Önizleme
+    </span>
+    <span class="pill" id="repoPill">depo yükleniyor…</span>
+  </div>
+</header>
+
+<div class="notice" id="notice" hidden></div>
+
+<section class="kpis" id="kpis"></section>
+
+<main class="workspace">
+
+  <aside class="panel panel--browser">
+    <div class="panel__head">
+      <h2>Depo Gezgini</h2>
+      <span class="panel__count" id="fileCount"></span>
+    </div>
+    <div class="panel__tools">
+      <input type="search" id="search" placeholder="Dosya ara…" autocomplete="off" />
+      <label class="check">
+        <input type="checkbox" id="onlyEditable" checked />
+        <span>Yalnızca düzenlenebilir</span>
+      </label>
+    </div>
+    <ul class="filelist" id="filelist"></ul>
+  </aside>
+
+  <section class="panel panel--canvas">
+    <div class="panel__head">
+      <h2 id="docTitle">Bir dosya seçin</h2>
+      <span class="panel__count" id="docMeta"></span>
+    </div>
+    <div class="legend">
+      <span class="chip chip--play">play</span>
+      <span class="chip chip--role">role</span>
+      <span class="chip chip--module">module</span>
+      <span class="chip chip--task_include">task_include</span>
+      <span class="chip chip--block">block</span>
+      <span class="chip chip--raw">raw</span>
+    </div>
+    <div class="canvas" id="canvas">
+      <p class="empty">Soldaki listeden bir playbook seçtiğinizde, dosya burada
+         görsel düğümlere ayrıştırılır.</p>
+    </div>
+  </section>
+
+  <section class="panel panel--source">
+    <div class="panel__head">
+      <h2>Kaynak YAML</h2>
+      <span class="panel__count" id="srcMeta"></span>
+    </div>
+    <p class="panel__hint">Bir düğüme tıklayın — kaynaktaki tam karşılığı işaretlenir.</p>
+    <div class="source" id="source"></div>
+  </section>
+
+</main>
+
+<footer class="footer">
+  <span>Ayrıştırma <strong>ruamel.yaml</strong> + cerrahi metin yaması (ADR-0007) ile yapılır.
+        Dosyalar okunur, <strong>değiştirilmez</strong>.</span>
+  <span id="buildInfo"></span>
+</footer>
+
+<script src="/ui/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,60 @@
+# ---------------------------------------------------------------------------
+# Yerel gelistirme ortami. Uretimde deploy/helm kullanilir.
+# ---------------------------------------------------------------------------
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ansibleui
+      POSTGRES_PASSWORD: ansibleui
+      POSTGRES_DB: ansibleui
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ansibleui']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    environment:
+      ANSIBLEUI_DATABASE_URL: postgresql+asyncpg://ansibleui:ansibleui@postgres:5432/ansibleui
+      ANSIBLEUI_REPO_PATH: /data/repo
+    ports:
+      - '8000:8000'
+    volumes:
+      # Kod degisikliklerinin aninda yansimasi icin canli baglama.
+      - ./backend/app:/app/app:ro
+      - repo-data:/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command:
+      ['uvicorn', 'app.main:app', '--host', '0.0.0.0', '--port', '8000', '--reload']
+
+  web:
+    image: node:20-alpine
+    working_dir: /app
+    environment:
+      VITE_API_BASE_URL: http://localhost:8000
+    ports:
+      - '5173:5173'
+    volumes:
+      - ./frontend:/app
+      - web-node-modules:/app/node_modules
+    command: sh -c "npm install --no-audit --no-fund && npm run dev -- --host 0.0.0.0"
+    depends_on:
+      - api
+
+volumes:
+  postgres-data:
+  repo-data:
+  web-node-modules:

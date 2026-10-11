@@ -1,0 +1,154 @@
+# AnsibleUI — CI boru hatti
+#
+# Adim sirasi docs/14-testing-strategy.md bolum 9 ile birebir ayni tutulur.
+# Altin test (adim 4) basarisizsa sonraki adimlar CALISTIRILMAZ.
+#
+# Referans Ansible deposu ikinci bir kaynak olarak cekilir; altin testler
+# CI'da ATLANAMAZ (yerel gelistirmede depo yoksa skip edilebilir).
+
+trigger:
+  branches:
+    include:
+      - main
+      - ansibleui/*
+
+pr:
+  branches:
+    include:
+      - main
+
+resources:
+  repositories:
+    - repository: ansibleRepo
+      type: git
+      name: KT.ITAutomation/Ansible.appAdminConfig
+      ref: refs/heads/main
+
+variables:
+  PYTHON_VERSION: "3.12"
+  NODE_VERSION: "20.x"
+  # Altin testler bu yoldaki depoyu okur.
+  ANSIBLEUI_REFERENCE_REPO: $(Pipeline.Workspace)/s/ansibleRepo
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
+stages:
+  # =========================================================================
+  - stage: Quality
+    displayName: "Lint, tip kontrolu ve testler"
+    jobs:
+      - job: Backend
+        displayName: "Backend"
+        pool:
+          name: $(ciPoolName)
+        steps:
+          - checkout: self
+          - checkout: ansibleRepo
+
+          - task: UsePythonVersion@0
+            displayName: "1. Python $(PYTHON_VERSION)"
+            inputs:
+              versionSpec: $(PYTHON_VERSION)
+
+          - script: |
+              python -m pip install --upgrade pip
+              pip install -e ".[dev]"
+            displayName: "1. Bagimliliklari kur"
+            workingDirectory: $(Build.SourcesDirectory)/ansible-ui/backend
+
+          - script: |
+              ruff check .
+              ruff format --check .
+            displayName: "2. Lint (ruff)"
+            workingDirectory: $(Build.SourcesDirectory)/ansible-ui/backend
+
+          - script: mypy app tests
+            displayName: "3. Tip kontrolu (mypy --strict)"
+            workingDirectory: $(Build.SourcesDirectory)/ansible-ui/backend
+
+          # --- KRITIK ADIM -----------------------------------------------
+          # Bu adim kirmizi ise sonraki hicbir adim calismaz ve hicbir sey
+          # merge edilmez. Kayipsiz gidis-donus projenin temel sozlesmesidir.
+          - script: |
+              pytest tests/golden -v --no-header -p no:randomly
+              if pytest tests/golden --collect-only -q 2>&1 | grep -q "no tests ran"; then
+                echo "##vso[task.logissue type=error]Altin test toplanamadi"
+                exit 1
+              fi
+            displayName: "4. ★ Altin testler (byte-identical)"
+            workingDirectory: $(Build.SourcesDirectory)/ansible-ui/backend
+            env:
+              ANSIBLEUI_REFERENCE_REPO: $(Build.SourcesDirectory)/Ansible.appAdminConfig
+              ANSIBLEUI_GOLDEN_REQUIRED: "1"
+          # ----------------------------------------------------------------
+
+          - script: |
+              pytest tests/unit --cov=app --cov-report=xml --cov-report=term
+            displayName: "5. Birim testler"
+            workingDirectory: $(Build.SourcesDirectory)/ansible-ui/backend
+
+          - script: pytest tests/integration
+            displayName: "6. Entegrasyon testleri"
+            workingDirectory: $(Build.SourcesDirectory)/ansible-ui/backend
+
+          - script: pip-audit --strict
+            displayName: "7. Bagimlilik guvenlik taramasi"
+            workingDirectory: $(Build.SourcesDirectory)/ansible-ui/backend
+            continueOnError: true
+
+          - task: PublishCodeCoverageResults@2
+            displayName: "Kapsam raporu"
+            condition: succeededOrFailed()
+            inputs:
+              summaryFileLocation: $(Build.SourcesDirectory)/ansible-ui/backend/coverage.xml
+
+      - job: Frontend
+        displayName: "Frontend"
+        pool:
+          name: $(ciPoolName)
+        steps:
+          - checkout: self
+
+          - task: NodeTool@0
+            displayName: "1. Node $(NODE_VERSION)"
+            inputs:
+              versionSpec: $(NODE_VERSION)
+
+          - script: npm ci
+            displayName: "1. Bagimliliklari kur"
+            workingDirectory: $(Build.SourcesDirectory)/ansible-ui/frontend
+
+          - script: |
+              npm run lint
+              npm run format:check
+            displayName: "2. Lint (eslint + prettier)"
+            workingDirectory: $(Build.SourcesDirectory)/ansible-ui/frontend
+
+          - script: npm run typecheck
+            displayName: "3. Tip kontrolu (tsc)"
+            workingDirectory: $(Build.SourcesDirectory)/ansible-ui/frontend
+
+          - script: npm run test
+            displayName: "5. Birim testler (vitest)"
+            workingDirectory: $(Build.SourcesDirectory)/ansible-ui/frontend
+
+          - script: npm audit --audit-level=high
+            displayName: "7. Bagimlilik guvenlik taramasi"
+            workingDirectory: $(Build.SourcesDirectory)/ansible-ui/frontend
+            continueOnError: true
+
+  # =========================================================================
+  - stage: Build
+    displayName: "Imaj derleme"
+    dependsOn: Quality
+    condition: succeeded()
+    jobs:
+      - job: Images
+        displayName: "8. Docker imajlari"
+        pool:
+          name: $(ciPoolName)
+        steps:
+          - checkout: self
+          - script: |
+              docker build -t ansible-ui-backend:$(Build.BuildId) ./ansible-ui/backend
+              docker build -t ansible-ui-frontend:$(Build.BuildId) ./ansible-ui/frontend
+            displayName: "Imajlari derle"
